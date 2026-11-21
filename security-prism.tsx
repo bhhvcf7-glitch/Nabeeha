@@ -1,0 +1,31 @@
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { decide, expectedLoss, holdValue, mixedResidual, thresholds } from '../lib/guardian-prism';
+
+const labels = {
+  ar: { subtitle: 'لوحة نبيهه للحماية الذكية', demo: 'محاكاة بحثية — دون معاملات مالية حقيقية', risk: 'احتمال الاحتيال', model: 'نموذج التهديد', decision: 'القرار المقترح', allow: 'سماح', verify: 'تحقق إضافي', block: 'منع', costs: 'الخسارة المتوقعة (ر.س)', hold: 'قيمة انتظار دليل إضافي', beneficial: 'انتظار مفيد', immediate: 'قرار فوري أفضل', evidence: 'جودة الدليل', residual: 'نجاح الهجوم بعد التحقق', next: 'هذه محاكاة ولا تمثل إجراءً مصرفيًا حقيقيًا.', decrease: 'تقليل المخاطر', increase: 'زيادة المخاطر', weak: 'ضعيف', strong: 'موثوق' },
+  en: { subtitle: 'Nabeeha Intelligent Security', demo: 'Research simulation — no real financial transactions', risk: 'Fraud probability', model: 'Threat model', decision: 'Recommended decision', allow: 'Allow', verify: 'Verify', block: 'Block', costs: 'Expected loss (SAR)', hold: 'Value of additional evidence', beneficial: 'Hold can help', immediate: 'Act now is better', evidence: 'Evidence quality', residual: 'Post-verification attack success', next: 'This is a simulation, not a real banking action.', decrease: 'Lower risk', increase: 'Increase risk', weak: 'Weak', strong: 'Trusted' },
+};
+export default function SecurityPrism() {
+  const [language, setLanguage] = useState<'ar' | 'en'>('ar');
+  const [risk, setRisk] = useState(.30);
+  const [evidence, setEvidence] = useState<'E0' | 'E2'>('E2');
+  const t = labels[language];
+  const residual = mixedResidual([[.5,.02],[.3,.03],[.2,.40]]);
+  const costs = useMemo(() => expectedLoss(risk, residual), [risk, residual]);
+  const decision = decide(risk, residual) as 'allow' | 'verify' | 'block';
+  const wait = holdValue(risk, .8, .1, residual, evidence);
+  const bands = thresholds(residual);
+  const money = (n:number) => n.toFixed(2);
+  return <SafeAreaView style={s.screen}><StatusBar barStyle="light-content"/><ScrollView contentContainerStyle={s.content}>
+    <View style={s.top}><TouchableOpacity onPress={() => router.back()} style={s.icon}><Feather name="arrow-left" color="#dffaf6" size={21}/></TouchableOpacity><Text style={s.logo}>NABEEHA <Text style={s.accent}>/ PRISM</Text></Text><TouchableOpacity style={s.lang} onPress={() => setLanguage(language === 'ar' ? 'en' : 'ar')}><Text style={s.langText}>{language === 'ar' ? 'EN' : 'عربي'}</Text></TouchableOpacity></View>
+    <Text style={s.kicker}>GUARDIAN X · V16</Text><Text style={s.heading}>{t.subtitle}</Text><Text style={s.muted}>{t.demo}</Text>
+    <View style={s.card}><View style={s.row}><Text style={s.label}>{t.risk}</Text><Text style={s.number}>{(risk*100).toFixed(0)}%</Text></View><View style={s.bar}><View style={[s.fill,{width:`${risk*100}%`}]} /></View><View style={s.row}><TouchableOpacity onPress={()=>setRisk(Math.max(0,Math.round((risk-.05)*100)/100))} style={s.smallBtn}><Feather name="minus" color="#69e3d2" size={18}/><Text style={s.btnText}>{t.decrease}</Text></TouchableOpacity><TouchableOpacity onPress={()=>setRisk(Math.min(1,Math.round((risk+.05)*100)/100))} style={s.smallBtn}><Feather name="plus" color="#69e3d2" size={18}/><Text style={s.btnText}>{t.increase}</Text></TouchableOpacity></View></View>
+    <View style={s.card}><Text style={s.label}>{t.decision}</Text><Text style={s.decision}>{t[decision]}</Text><Text style={s.muted}>{t.model}: {t.residual} {(residual*100).toFixed(1)}%</Text><View style={s.rule}/><Text style={s.label}>{t.costs}</Text>{(['allow','verify','block'] as const).map(key=><View key={key} style={s.row}><Text style={s.muted}>{t[key]}</Text><Text style={s.value}>{money(costs[key])}</Text></View>)}<Text style={s.mini}>Allow/verify {(bands.allowVerify*100).toFixed(2)}% · Verify/block {(bands.verifyBlock*100).toFixed(2)}%</Text></View>
+    <View style={s.card}><Text style={s.label}>{t.evidence}</Text><View style={s.row}>{(['E0','E2'] as const).map(key=><TouchableOpacity key={key} onPress={()=>setEvidence(key)} style={[s.smallBtn,evidence===key&&s.selected]}><Text style={s.btnText}>{key} · {key==='E0'?t.weak:t.strong}</Text></TouchableOpacity>)}</View><Text style={s.label}>{t.hold}</Text><Text style={[s.decision,{fontSize:26}]}>{wait.value>=0?'+':''}{money(wait.value)} SAR</Text><Text style={s.muted}>{wait.recommended?t.beneficial:t.immediate}</Text></View><Text style={s.notice}>{t.next}</Text>
+  </ScrollView></SafeAreaView>;
+}
+const s=StyleSheet.create({screen:{flex:1,backgroundColor:'#081a2b'},content:{padding:22,paddingBottom:60},top:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:35},icon:{padding:10,backgroundColor:'#123345',borderRadius:12},logo:{color:'#f1fafb',fontWeight:'800',fontSize:17,letterSpacing:1},accent:{color:'#62e3d0'},lang:{backgroundColor:'#173e48',borderRadius:12,paddingHorizontal:16,paddingVertical:10},langText:{color:'#74eedb',fontWeight:'800'},kicker:{color:'#60decf',fontSize:10,letterSpacing:3,fontWeight:'800'},heading:{color:'#effbfa',fontSize:29,fontWeight:'800',marginTop:9},muted:{color:'#91b1c2',fontSize:13,lineHeight:24},card:{backgroundColor:'#112b3d',borderColor:'#285567',borderWidth:1,borderRadius:19,padding:21,marginTop:18,gap:13},row:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:10},label:{fontSize:14,color:'#c7dce3',fontWeight:'600'},number:{fontSize:24,color:'#60ead4',fontWeight:'800'},bar:{height:10,backgroundColor:'#29485a',borderRadius:12,overflow:'hidden'},fill:{height:'100%',backgroundColor:'#43d7c3'},smallBtn:{borderWidth:1,borderColor:'#347078',borderRadius:12,padding:12,flexDirection:'row',alignItems:'center',gap:7,marginTop:6},btnText:{color:'#b4e7df',fontWeight:'600',fontSize:12},decision:{color:'#69e6d2',fontSize:32,fontWeight:'800'},rule:{height:1,backgroundColor:'#2c4d5f'},value:{color:'#f3f9fb',fontWeight:'700'},mini:{fontSize:10,color:'#789dae'},selected:{backgroundColor:'#17615c',borderColor:'#6ee6d7'},notice:{marginTop:20,color:'#c7aa75',fontSize:12,textAlign:'center'}});
